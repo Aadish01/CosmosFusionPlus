@@ -1,5 +1,7 @@
 {
     "Deployer": "0x499E6DC5D5B0d917b29dB9b2eE53Df33caC8Ab3C",
     "Deployed to": "0x6deD25F666D1E148f6a2C186018d854E5b9a81D4",
-    "Transaction hash": "0x4d292fe852ef3640071c668b8e1bdfb1b9c45a141bce0d4ea5dc3366a52773fb"
+    "Transaction hash": "0x4d292fe852ef3640071c668b8e1bdfb1b9c45a141bce0d4ea5dc3366a52773fb",
+    "IEscrowFactory": "0xa7bcb4eac8964306f9e3764f67db6a7af6ddf99a",
+    "LOP(Router)": "0x111111125421cA6dc452d289314280a0f8842A65"
 }
