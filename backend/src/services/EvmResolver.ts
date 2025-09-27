@@ -10,8 +10,8 @@ export class EvmResolver {
   private config: ResolverConfig;
   private readonly resolverContract = new Interface([
     'function deploySrc((bytes32 orderHash, bytes32 hashlock, uint256 maker, uint256 taker, uint256 token, uint256 amount, uint256 safetyDeposit, uint256 timelocks) immutables,(uint256 salt, uint256 maker, uint256 receiver, uint256 makerAsset, uint256 takerAsset, uint256 makingAmount, uint256 takingAmount, uint256 makerTraits) order, bytes32 r, bytes32 vs, uint256 amount, uint256 takerTraits, bytes args) payable',
-    'function deployDst((bytes32 orderHash, bytes32 hashlock, uint256 maker, uint256 taker, uint256 token, uint256 amount, uint256 safetyDeposit, uint256 timelocks) dstImmutables, uint256 srcCancellationTimestamp) payable',
-    'function withdraw(address escrow, bytes32 secret, (bytes32 orderHash, bytes32 hashlock, uint256 maker, uint256 taker, uint256 token, uint256 amount, uint256 safetyDeposit, uint256 timelocks) immutables)'
+    'function deployDst(address[] targets, bytes[] callsData, (bytes32 orderHash, bytes32 hashlock, uint256 maker, uint256 taker, uint256 token, uint256 amount, uint256 safetyDeposit, uint256 timelocks) dstImmutables, uint256 srcCancellationTimestamp) payable',
+    'function withdraw(address escrow, bytes32 secret, (bytes32 orderHash, bytes32 hashlock, uint256 maker, uint256 taker, uint256 token, uint256 amount, uint256 safetyDeposit, uint256 timelocks) immutables, address[] targets, bytes[] callsData)'
   ]);
   private readonly escrowFactoryContract = new Interface([
     'event DstEscrowCreated(address escrow)',
@@ -89,9 +89,13 @@ export class EvmResolver {
   }
 
   private createDeployDstTx(immutables: Sdk.Immutables): TransactionRequest {
+    const emptyTargets: string[] = [];
+    const emptyCalls: string[] = [];
     return {
       to: this.config.resolver,
       data: this.resolverContract.encodeFunctionData('deployDst', [
+        emptyTargets,
+        emptyCalls,
         immutables.build(),
         immutables.timeLocks.toSrcTimeLocks().privateCancellation,
       ]),
@@ -106,6 +110,8 @@ export class EvmResolver {
         escrow,
         '0x' + secret,
         immutables.build(),
+        [],
+        [],
       ]),
     };
   }

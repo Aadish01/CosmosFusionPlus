@@ -77,6 +77,18 @@ export default class RelayerService {
       this.swapOrderService.addEvmEscrowAddress(orderHash, escrowAddress);
       this.swapOrderService.addDeployedAt(orderHash, Number(deployedAt));
       this.swapOrderService.addEscrowSrcTxHash(orderHash, escrowSrcTxHash);
+
+      // Create HTLC on Cosmos side using the same hashlock/amount
+      const hashlockHex = order.order.hashLock.toString();
+      const amount = order.order.takingAmount.toString();
+      await this.cosmosResolver.createHTLC({
+        swap_hash: order.orderHash,
+        maker: order.userIntent.receiver,
+        amount,
+        denom: order.userIntent.dstChainAsset,
+        hashlock: hashlockHex,
+        timelock: Number(order.order.timeLocks.toDstTimeLocks(deployedAt).privateWithdrawal),
+      });
     } catch (error) {
       logger.error('Failed to execute swap order via relayer', { error, orderHash });
       this.swapOrderService.updateOrderStatus(orderHash);

@@ -43,6 +43,11 @@ export class CosmosResolver {
     logger.info('Cosmos createHTLC executed', { tx: res.transactionHash });
     return res.transactionHash;
   }
+
+  public async getHTLCBySwapHash(swap_hash: string): Promise<any> {
+    const query = { GetHTLC: { swap_hash } } as any;
+    return await this.cosmos.getWasm().queryContractSmart(this.config.escrowFactoryAddress!, query);
+  }
 }
 
 

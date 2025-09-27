@@ -51,6 +51,40 @@ $ anvil
 $ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
 ```
 
+### Arbitrum Contracts:
+
+IEscrowFactory: 0xa7bcb4eac8964306f9e3764f67db6a7af6ddf99a
+LOP: 0x111111125421cA6dc452d289314280a0f8842A65
+
+
+### Deploy Resolver
+
+Constructor arguments for `src/Resolver.sol:Resolver`:
+
+- factory: address of `IEscrowFactory`
+- lop: address of `IOrderMixin` (1inch Limit Order Protocol)
+- initialOwner: EOA that will own the resolver (onlyOwner)
+
+Example (Sepolia shown as placeholder RPC/keys):
+
+```bash
+forge create src/Resolver.sol:Resolver \
+  --rpc-url https://sepolia.infura.io/v3/<INFURA_KEY> \
+  --private-key <DEPLOYER_PRIVATE_KEY> \
+  --constructor-args \
+  <ESCROW_FACTORY_ADDRESS> \
+  <LIMIT_ORDER_PROTOCOL_ADDRESS> \
+  <OWNER_ADDRESS>
+```
+
+
+Notes:
+
+- Make sure the Escrow Factory is deployed and you have its address.
+- Use the correct Limit Order Protocol address for your network.
+- The owner address can be the same deployer or a different ops wallet.
+
+
 ### Cast
 
 ```shell
