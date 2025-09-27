@@ -1,0 +1,28 @@
+{
+  "name": "osmosis-3",
+  "version": "1.0.0",
+  "description": "Minimalistic IBC + HTLC contracts for Osmosis",
+  "main": "deploy.js",
+  "scripts": {
+    "build": "make build",
+    "deploy": "node deploy.js",
+    "test": "npm run test:factory && npm run test:escrow && npm run test:ibc",
+    "clean": "make clean",
+    "test:factory": "node tests/test-escrow-factory.js",
+    "test:escrow": "node tests/test-escrow.js",
+    "test:ibc": "node tests/test-ibc.js"
+  },
+  "dependencies": {
+    "@cosmjs/cosmwasm-stargate": "^0.32.2",
+    "@cosmjs/crypto": "^0.32.2",
+    "@cosmjs/encoding": "^0.32.2",
+    "@cosmjs/math": "^0.32.2",
+    "@cosmjs/proto-signing": "^0.32.2",
+    "@cosmjs/stargate": "^0.32.2",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.8.0",
+    "typescript": "^5.2.2"
+  }
+}
