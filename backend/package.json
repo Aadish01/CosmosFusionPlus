@@ -1,0 +1,51 @@
+{
+  "name": "cosmosfusionplus-backend",
+  "version": "0.1.0",
+  "description": "Backend service for CosmosFusionPlus: EVM <-> Cosmos (CosmWasm) cross-chain swap orchestration",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "ts-node-dev --respawn --transpile-only src/index.ts",
+    "lint": "eslint \"src/**/*.ts\"",
+    "lint:fix": "eslint \"src/**/*.ts\" --fix",
+    "format": "prettier --write \"src/**/*.ts\""
+  },
+  "dependencies": {
+    "@1inch/byte-utils": "^3.1.0",
+    "@1inch/cross-chain-sdk": "^0.2.1-rc.54",
+    "@cosmjs/cosmwasm-stargate": "^0.32.3",
+    "@cosmjs/proto-signing": "^0.32.3",
+    "@cosmjs/stargate": "^0.32.3",
+    "axios": "^1.6.2",
+    "compression": "^1.7.4",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "ethers": "^6.12.2",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "express-validator": "^7.0.1",
+    "helmet": "^7.1.0",
+    "long": "^5.2.3",
+    "uuid": "^9.0.1",
+    "winston": "^3.13.1"
+  },
+  "devDependencies": {
+    "@types/compression": "^1.7.5",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.16.5",
+    "@types/uuid": "^9.0.7",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.6.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
+
