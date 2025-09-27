@@ -118,14 +118,25 @@ export default class RelayerService {
   private createEvmCrossChainOrder(userIntent: UserIntent, resolver: EvmResolver): Sdk.EvmCrossChainOrder {
     const escrowFactory = Sdk.EvmAddress.fromString(resolver.getEscrowFactory());
     const hashLock = Sdk.HashLock.fromString(userIntent.hashLock);
+
+    // Heuristic: if source is Arbitrum WETH, use 18 decimals; otherwise 6
+    const ARB_WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'.toLowerCase();
+    const makingDecimals = (userIntent.srcChainAsset || '').toLowerCase() === ARB_WETH ? 18 : 6;
+    const takingDecimals = 6;
+
+    // Non-EVM destination (Cosmos) handling: use TRUE token sentinel and resolver as EVM receiver
+    const NON_EVM_DST = userIntent.dstChainId !== 1 && userIntent.dstChainId !== 10 && userIntent.dstChainId !== 137 && userIntent.dstChainId !== 42161;
+    const TRUE_TOKEN = '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF';
+    const resolverAddress = Sdk.EvmAddress.fromString(resolver.getResolverAddress());
+
     const orderInfo = {
       salt: Sdk.randBigInt(1000n),
       maker: Sdk.EvmAddress.fromString(userIntent.userAddress),
-      makingAmount: parseUnits(userIntent.tokenAmount.toString(), 6),
-      takingAmount: parseUnits(userIntent.tokenAmount, 6),
+      makingAmount: parseUnits(userIntent.tokenAmount.toString(), makingDecimals),
+      takingAmount: parseUnits(userIntent.tokenAmount, takingDecimals),
       makerAsset: Sdk.EvmAddress.fromString(userIntent.srcChainAsset),
-      takerAsset: Sdk.EvmAddress.fromString(userIntent.dstChainAsset),
-      receiver: Sdk.EvmAddress.fromString(userIntent.receiver),
+      takerAsset: Sdk.EvmAddress.fromString(NON_EVM_DST ? TRUE_TOKEN : userIntent.dstChainAsset),
+      receiver: NON_EVM_DST ? resolverAddress : Sdk.EvmAddress.fromString(userIntent.receiver),
     };
     const escrowParams = {
       hashLock,
@@ -135,7 +146,6 @@ export default class RelayerService {
       srcSafetyDeposit: parseEther('0.000001'),
       dstSafetyDeposit: parseUnits('0.000001', 6),
     };
-    const resolverAddress = Sdk.EvmAddress.fromString(resolver.getResolverAddress());
     const details = { auction: new Sdk.AuctionDetails({ initialRateBump: 0, points: [], duration: 120n, startTime: BigInt(Math.floor(Date.now() / 1000)) }), whitelist: [{ address: resolverAddress, allowFrom: 0n }], resolvingStartTime: 0n };
     const extra = { nonce: Sdk.randBigInt(2n ** 40n - 1n), allowPartialFills: false, allowMultipleFills: false };
     return Sdk.EvmCrossChainOrder.new(escrowFactory, orderInfo, escrowParams, details, extra);

@@ -17,6 +17,15 @@ router.post(
 );
 
 router.post(
+  '/cosmos_to_eth/build',
+  asyncHandler(async (req, res) => {
+    // For Cosmos -> ETH, EVM order build is not required; we acknowledge inputs
+    // and let the client proceed to submit Cosmos HTLC first.
+    return res.status(200).json({ success: true, data: { message: 'Cosmos->ETH build acknowledged' } } satisfies ApiResponse);
+  })
+);
+
+router.post(
   '/eth_to_cosmos',
   asyncHandler(async (req, res) => {
     const relayerService = req.app.locals.relayerService as RelayerService;

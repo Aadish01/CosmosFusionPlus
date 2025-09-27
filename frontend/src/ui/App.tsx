@@ -4,13 +4,14 @@ function App() {
   const [apiBase, setApiBase] = useState<string>(
     import.meta.env.VITE_API_BASE || 'http://localhost:3001'
   )
+  const [flow, setFlow] = useState<'ETH_TO_OSMO' | 'OSMO_TO_ETH'>('ETH_TO_OSMO')
   const [intent, setIntent] = useState({
     srcChainId: 42161,
-    dstChainId: 999, // cosmos placeholder
+    dstChainId: 999,
     userAddress: '',
     tokenAmount: '1',
-    srcChainAsset: '',
-    dstChainAsset: '',
+    srcChainAsset: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+    dstChainAsset: '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF',
     hashLock: '',
     receiver: ''
   })
@@ -18,7 +19,8 @@ function App() {
   const disabled = useMemo(() => !intent.userAddress || !intent.hashLock, [intent])
 
   async function build() {
-    const res = await fetch(`${apiBase}/api/swap/eth_to_cosmos/build`, {
+    const path = flow === 'ETH_TO_OSMO' ? 'eth_to_cosmos' : 'cosmos_to_eth'
+    const res = await fetch(`${apiBase}/api/swap/${path}/build`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(intent)
@@ -27,10 +29,103 @@ function App() {
     alert(JSON.stringify(data, null, 2))
   }
 
+  async function connectMetaMask() {
+    if (!window.ethereum) {
+      alert('MetaMask not found')
+      return
+    }
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0xA4B1' }] })
+    } catch (e) {
+      // chain not added, attempt add Arbitrum One
+      try {
+        await window.ethereum.request({
+          method: 'wallet_addEthereumChain',
+          params: [{
+            chainId: '0xA4B1',
+            chainName: 'Arbitrum One',
+            nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+            rpcUrls: ['https://arbitrum.drpc.org'],
+            blockExplorerUrls: ['https://arbiscan.io']
+          }]
+        })
+      } catch {}
+    }
+    const accounts: string[] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+    setIntent({ ...intent, userAddress: accounts[0] })
+  }
+
+  async function connectKeplr() {
+    const chainId = 'osmo-test-5'
+    if (!('keplr' in window)) {
+      alert('Keplr not found')
+      return
+    }
+    try {
+      await window.keplr.enable(chainId)
+    } catch {
+      // Try suggest chain if not added
+      const rest = import.meta.env.VITE_OSMO_REST || 'https://rest.testnet.osmosis.zone'
+      const rpc = import.meta.env.VITE_OSMO_RPC || 'https://rpc.testnet.osmosis.zone'
+      await window.keplr.experimentalSuggestChain({
+        chainId,
+        chainName: 'Osmosis Testnet',
+        rpc,
+        rest,
+        bip44: { coinType: 118 },
+        bech32Config: {
+          bech32PrefixAccAddr: 'osmo',
+          bech32PrefixAccPub: 'osmopub',
+          bech32PrefixValAddr: 'osmovaloper',
+          bech32PrefixValPub: 'osmovaloperpub',
+          bech32PrefixConsAddr: 'osmovalcons',
+          bech32PrefixConsPub: 'osmovalconspub'
+        },
+        currencies: [{ coinDenom: 'OSMO', coinMinimalDenom: 'uosmo', coinDecimals: 6 }],
+        feeCurrencies: [{ coinDenom: 'OSMO', coinMinimalDenom: 'uosmo', coinDecimals: 6 }],
+        stakeCurrency: { coinDenom: 'OSMO', coinMinimalDenom: 'uosmo', coinDecimals: 6 },
+        features: ['stargate', 'ibc-transfer']
+      })
+      await window.keplr.enable(chainId)
+    }
+    const key = await window.keplr.getKey(chainId)
+    setIntent({ ...intent, receiver: key.bech32Address })
+  }
+
   return (
     <div style={{ padding: 24, fontFamily: 'sans-serif' }}>
       <h1>CosmosFusionPlus</h1>
       <div style={{ display: 'grid', gap: 12, maxWidth: 680 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <select value={flow} onChange={e => {
+            const f = e.target.value as 'ETH_TO_OSMO' | 'OSMO_TO_ETH'
+            setFlow(f)
+            if (f === 'ETH_TO_OSMO') {
+              setIntent({
+                ...intent,
+                srcChainId: 42161,
+                dstChainId: 999,
+                srcChainAsset: '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1',
+                dstChainAsset: '0xFFfFfFffFFfffFFfFFfFFFFFffFFFffffFfFFFfF'
+              })
+            } else {
+              // OSMO -> ETH: here UI just flips chains; backend will handle flow later
+              setIntent({
+                ...intent,
+                srcChainId: 999,
+                dstChainId: 42161,
+                // keep same tokenAmount/hashLock/addresses; src/dst assets are informational
+                srcChainAsset: 'uosmo',
+                dstChainAsset: 'ETH'
+              })
+            }
+          }}>
+            <option value="ETH_TO_OSMO">ETH → OSMO</option>
+            <option value="OSMO_TO_ETH">OSMO → ETH</option>
+          </select>
+          <button onClick={connectMetaMask}>Connect MetaMask (Arbitrum)</button>
+          <button onClick={connectKeplr}>Connect Keplr (Osmosis)</button>
+        </div>
         <label>
           API Base
           <input value={apiBase} onChange={e => setApiBase(e.target.value)} style={{ width: '100%' }} />
@@ -48,12 +143,12 @@ function App() {
           <input value={intent.tokenAmount} onChange={e => setIntent({ ...intent, tokenAmount: e.target.value })} style={{ width: '100%' }} />
         </label>
         <label>
-          Src Chain Asset
-          <input value={intent.srcChainAsset} onChange={e => setIntent({ ...intent, srcChainAsset: e.target.value })} style={{ width: '100%' }} />
+          Src Chain Asset (auto)
+          <input value={intent.srcChainAsset} readOnly style={{ width: '100%', background: '#f5f5f5' }} />
         </label>
         <label>
-          Dst Chain Asset
-          <input value={intent.dstChainAsset} onChange={e => setIntent({ ...intent, dstChainAsset: e.target.value })} style={{ width: '100%' }} />
+          Dst Chain Asset (auto)
+          <input value={intent.dstChainAsset} readOnly style={{ width: '100%', background: '#f5f5f5' }} />
         </label>
         <label>
           HashLock (0x...)
