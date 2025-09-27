@@ -4,3 +4,9 @@
 [submodule "evm-contracts/evm/lib/cross-chain-swap"]
 	path = evm-contracts/evm/lib/cross-chain-swap
 	url = https://github.com/1inch/cross-chain-swap
+[submodule "evm-contracts/lib/forge-std"]
+	path = evm-contracts/lib/forge-std
+	url = https://github.com/foundry-rs/forge-std
+[submodule "evm-contracts/lib/cross-chain-swap"]
+	path = evm-contracts/lib/cross-chain-swap
+	url = https://github.com/1inch/cross-chain-swap
