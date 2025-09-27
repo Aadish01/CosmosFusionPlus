@@ -31,7 +31,7 @@ function App() {
 
   async function execute() {
     const path = flow === 'ETH_TO_OSMO' ? 'eth_to_cosmos' : 'cosmos_to_eth'
-    // Build first to get typedData + orderHash
+    // Build first (typedData+orderHash for ETH leg; orderHash for Cosmos leg)
     const buildRes = await fetch(`${apiBase}/api/swap/${path}/build`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -39,23 +39,92 @@ function App() {
     })
     const buildOut = await buildRes.json()
     if (!buildOut?.success) { alert('Build failed'); return }
-    const { typedData, orderHash } = buildOut.data
+    if (flow === 'ETH_TO_OSMO') {
+      const { typedData, orderHash } = buildOut.data
+      const [from] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      const signature = await window.ethereum.request({
+        method: 'eth_signTypedData_v4',
+        params: [from, JSON.stringify(typedData)]
+      })
+      const res = await fetch(`${apiBase}/api/swap/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderHash, signature })
+      })
+      const text = await res.text()
+      alert(text)
+    } else {
+      const { orderHash } = buildOut.data
+      // Keplr-signed HTLC on osmo-test-5
+      try {
+        const chainId = 'osmo-test-5'
+        const rpc = import.meta.env.VITE_OSMO_RPC || 'https://rpc.testnet.osmosis.zone'
+        const factory = import.meta.env.VITE_OSMO_FACTORY
+        const denom = import.meta.env.VITE_OSMO_DENOM || 'uosmo'
+        if (!factory) { alert('VITE_OSMO_FACTORY not set'); return }
 
-    // Sign typed data (ETH leg)
-    const [from] = await window.ethereum.request({ method: 'eth_requestAccounts' })
-    const signature = await window.ethereum.request({
-      method: 'eth_signTypedData_v4',
-      params: [from, JSON.stringify(typedData)]
-    })
+        // ensure chain is enabled (suggest if needed)
+        try { await window.keplr.enable(chainId) } catch {
+          await window.keplr.experimentalSuggestChain({
+            chainId,
+            chainName: 'Osmosis Testnet',
+            rpc,
+            rest: import.meta.env.VITE_OSMO_REST || 'https://rest.testnet.osmosis.zone',
+            bip44: { coinType: 118 },
+            bech32Config: {
+              bech32PrefixAccAddr: 'osmo', bech32PrefixAccPub: 'osmopub',
+              bech32PrefixValAddr: 'osmovaloper', bech32PrefixValPub: 'osmovaloperpub',
+              bech32PrefixConsAddr: 'osmovalcons', bech32PrefixConsPub: 'osmovalconspub'
+            },
+            currencies: [{ coinDenom: 'OSMO', coinMinimalDenom: 'uosmo', coinDecimals: 6 }],
+            feeCurrencies: [{ coinDenom: 'OSMO', coinMinimalDenom: 'uosmo', coinDecimals: 6 }],
+            stakeCurrency: { coinDenom: 'OSMO', coinMinimalDenom: 'uosmo', coinDecimals: 6 },
+            features: ['stargate', 'ibc-transfer']
+          })
+          await window.keplr.enable(chainId)
+        }
 
-    // Execute
-    const res = await fetch(`${apiBase}/api/swap/${path}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderHash, signature })
-    })
-    const text = await res.text()
-    alert(text)
+        const { SigningCosmWasmClient } = await import('@cosmjs/cosmwasm-stargate')
+        const { GasPrice } = await import('@cosmjs/stargate')
+        const signer = window.keplr.getOfflineSignerOnlyAmino(chainId)
+        const [{ address: from }] = await signer.getAccounts()
+
+        // convert tokenAmount to uosmo (6 decimals)
+        const toUosmo = (amtStr: string) => {
+          const [i, f = ''] = amtStr.split('.')
+          const frac = (f + '000000').slice(0, 6)
+          return (BigInt(i || '0') * 1000000n + BigInt(frac)).toString()
+        }
+        const amount = toUosmo(intent.tokenAmount)
+        const timelock = Math.floor(Date.now() / 1000) + 120
+        const { fromHex } = await import('@cosmjs/encoding')
+        const hashlockBytes = fromHex(intent.hashLock.replace(/^0x/, ''))
+
+        const gasPrice = GasPrice.fromString((import.meta.env.VITE_OSMO_GAS_PRICE as string) || '0.025uosmo')
+        const client = await SigningCosmWasmClient.connectWithSigner(rpc, signer, { gasPrice })
+        const msg = {
+          CreateHTLC: {
+            swap_hash: orderHash,
+            maker: from,
+            amount,
+            denom,
+            hashlock: hashlockBytes,
+            timelock
+          }
+        }
+        const res = await client.execute(from, factory, msg, 'auto')
+        alert('HTLC tx sent: ' + res.transactionHash)
+
+        // Notify backend to proceed (will deploy EVM leg when implemented)
+        await fetch(`${apiBase}/api/swap/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderHash })
+        })
+      } catch (e) {
+        alert('Keplr flow failed: ' + (e as any).message)
+      }
+    }
   }
 
   async function connectMetaMask() {

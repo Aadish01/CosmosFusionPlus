@@ -105,6 +105,18 @@ export default class RelayerService {
     return resolver;
   }
 
+  // Cosmos -> ETH flow helpers (Keplr-signed Cosmos leg)
+  public createCosmosToEthOrder(userIntent: UserIntent): SwapOrder {
+    const order: SwapOrder = this.swapOrderService.createSwapOrder({ userIntent } as any);
+    return order;
+  }
+
+  public async confirmCosmosToEth(orderHash: string): Promise<void> {
+    const order = this.swapOrderService.getOrderByHash(orderHash);
+    if (!order) throw new SwapError('Order not found', 'ORDER_NOT_FOUND', { orderHash });
+    // Here we would deploy EVM dst escrow based on cosmos details (future extension)
+  }
+
   private generateOrderTypedData(srcChainId: number, order: Sdk.EvmCrossChainOrder, verifyingContract: string): Sdk.EIP712TypedData {
     const typedData = order.getTypedData(srcChainId);
     typedData.domain = { name: '1inch Limit Order Protocol', version: '4', chainId: srcChainId, verifyingContract };

@@ -19,9 +19,10 @@ router.post(
 router.post(
   '/cosmos_to_eth/build',
   asyncHandler(async (req, res) => {
-    // For Cosmos -> ETH, EVM order build is not required; we acknowledge inputs
-    // and let the client proceed to submit Cosmos HTLC first.
-    return res.status(200).json({ success: true, data: { message: 'Cosmos->ETH build acknowledged' } } satisfies ApiResponse);
+    const relayerService = req.app.locals.relayerService as RelayerService;
+    const userIntent: UserIntent = req.body;
+    const order = relayerService.createCosmosToEthOrder(userIntent);
+    return res.status(200).json({ success: true, data: { orderHash: order.orderHash } } satisfies ApiResponse);
   })
 );
 
@@ -30,8 +31,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const relayerService = req.app.locals.relayerService as RelayerService;
     const { orderHash, signature }: ExecuteSwapOrderRequest = req.body;
-    res.status(200).send('Request received and processing initiated');
-    await relayerService.executeEvmSwapOrder(orderHash, signature);
+    const result = await relayerService.executeEvmSwapOrder(orderHash, signature);
+    return res.status(200).json({ success: true, data: { executed: true } } satisfies ApiResponse);
   })
 );
 
@@ -39,10 +40,9 @@ router.post(
   '/cosmos_to_eth',
   asyncHandler(async (req, res) => {
     const relayerService = req.app.locals.relayerService as RelayerService;
-    const { orderHash, signature }: ExecuteSwapOrderRequest = req.body;
-    res.status(200).send('Request received and processing initiated');
-    // For now reuse executeEvmSwapOrder path after Cosmos leg is created
-    await relayerService.executeEvmSwapOrder(orderHash, signature);
+    const { orderHash } = req.body as { orderHash: string };
+    await relayerService.confirmCosmosToEth(orderHash);
+    return res.status(200).json({ success: true, data: { executed: true } } satisfies ApiResponse);
   })
 );
 
