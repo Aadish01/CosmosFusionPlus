@@ -97,18 +97,18 @@ function App() {
         }
         const amount = toUosmo(intent.tokenAmount)
         const timelock = Math.floor(Date.now() / 1000) + 120
-        const { fromHex } = await import('@cosmjs/encoding')
-        const hashlockBytes = fromHex(intent.hashLock.replace(/^0x/, ''))
+        const { fromHex, toBase64 } = await import('@cosmjs/encoding')
+        const hashlockB64 = toBase64(fromHex(intent.hashLock.replace(/^0x/, '')))
 
         const gasPrice = GasPrice.fromString((import.meta.env.VITE_OSMO_GAS_PRICE as string) || '0.025uosmo')
         const client = await SigningCosmWasmClient.connectWithSigner(rpc, signer, { gasPrice })
         const msg = {
-          CreateHTLC: {
+          create_h_t_l_c: {
             swap_hash: orderHash,
             maker: from,
             amount,
             denom,
-            hashlock: hashlockBytes,
+            hashlock: hashlockB64,
             timelock
           }
         }
