@@ -10,9 +10,9 @@ router.post(
   asyncHandler(async (req, res) => {
     const relayerService = req.app.locals.relayerService as RelayerService;
     const userIntent: UserIntent = req.body;
-    const swapOrder = relayerService.buildEvmSwapOrder(userIntent);
-    if (!swapOrder) return res.status(400).json({ success: false, error: 'Failed to build swap order' } satisfies ApiResponse);
-    return res.status(200).json({ success: true, data: swapOrder } satisfies ApiResponse);
+    const built = relayerService.buildEvmSwapOrder(userIntent);
+    if (!built) return res.status(400).json({ success: false, error: 'Failed to build swap order' } satisfies ApiResponse);
+    return res.status(200).json({ success: true, data: built } satisfies ApiResponse);
   })
 );
 
@@ -31,6 +31,17 @@ router.post(
     const relayerService = req.app.locals.relayerService as RelayerService;
     const { orderHash, signature }: ExecuteSwapOrderRequest = req.body;
     res.status(200).send('Request received and processing initiated');
+    await relayerService.executeEvmSwapOrder(orderHash, signature);
+  })
+);
+
+router.post(
+  '/cosmos_to_eth',
+  asyncHandler(async (req, res) => {
+    const relayerService = req.app.locals.relayerService as RelayerService;
+    const { orderHash, signature }: ExecuteSwapOrderRequest = req.body;
+    res.status(200).send('Request received and processing initiated');
+    // For now reuse executeEvmSwapOrder path after Cosmos leg is created
     await relayerService.executeEvmSwapOrder(orderHash, signature);
   })
 );

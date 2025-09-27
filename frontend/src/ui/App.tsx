@@ -25,8 +25,37 @@ function App() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(intent)
     })
-    const data = await res.json()
-    alert(JSON.stringify(data, null, 2))
+    const out = await res.json()
+    alert(JSON.stringify(out, null, 2))
+  }
+
+  async function execute() {
+    const path = flow === 'ETH_TO_OSMO' ? 'eth_to_cosmos' : 'cosmos_to_eth'
+    // Build first to get typedData + orderHash
+    const buildRes = await fetch(`${apiBase}/api/swap/${path}/build`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(intent)
+    })
+    const buildOut = await buildRes.json()
+    if (!buildOut?.success) { alert('Build failed'); return }
+    const { typedData, orderHash } = buildOut.data
+
+    // Sign typed data (ETH leg)
+    const [from] = await window.ethereum.request({ method: 'eth_requestAccounts' })
+    const signature = await window.ethereum.request({
+      method: 'eth_signTypedData_v4',
+      params: [from, JSON.stringify(typedData)]
+    })
+
+    // Execute
+    const res = await fetch(`${apiBase}/api/swap/${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderHash, signature })
+    })
+    const text = await res.text()
+    alert(text)
   }
 
   async function connectMetaMask() {
@@ -154,7 +183,10 @@ function App() {
           HashLock (0x...)
           <input value={intent.hashLock} onChange={e => setIntent({ ...intent, hashLock: e.target.value })} style={{ width: '100%' }} />
         </label>
-        <button onClick={build} disabled={disabled}>Build Order</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={build} disabled={disabled}>Build Order</button>
+          <button onClick={execute}>Execute</button>
+        </div>
       </div>
     </div>
   )

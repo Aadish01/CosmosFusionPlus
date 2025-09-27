@@ -50,7 +50,7 @@ export default class RelayerService {
 
   public getSupportedChains(): number[] { return Array.from(this.resolvers.keys()) }
 
-  public buildEvmSwapOrder(userIntent: UserIntent): Sdk.EIP712TypedData | undefined {
+  public buildEvmSwapOrder(userIntent: UserIntent): { typedData: Sdk.EIP712TypedData; orderHash: string } | undefined {
     try {
       const resolver = this.getResolver(userIntent.srcChainId);
       const order = this.createEvmCrossChainOrder(userIntent, resolver);
@@ -58,7 +58,7 @@ export default class RelayerService {
       const orderHash = this.orderHash(typedData);
       const swapOrder: EvmSwapOrder = { orderHash, userIntent, createdAt: new Date(), updatedAt: new Date(), typedData, order };
       this.swapOrderService.createEvmSwapOrder(swapOrder);
-      return typedData;
+      return { typedData, orderHash };
     } catch (error) {
       logger.error('Failed to build swap order via relayer', { error, userIntent });
       throw new SwapError('Failed to build swap order', 'RELAYER_BUILD_FAILED', { userIntent });
@@ -142,7 +142,8 @@ export default class RelayerService {
       hashLock,
       timeLocks: Sdk.TimeLocks.new({ srcWithdrawal: 5n, srcPublicWithdrawal: 120n, srcCancellation: 121n, srcPublicCancellation: 122n, dstWithdrawal: 10n, dstPublicWithdrawal: 100n, dstCancellation: 101n }),
       srcChainId: userIntent.srcChainId as Sdk.EvmChain,
-      dstChainId: userIntent.dstChainId as Sdk.SupportedChain,
+      // For non‑EVM destinations, use 501 (Sui) as a sentinel to satisfy SDK validation
+      dstChainId: (NON_EVM_DST ? 501 : userIntent.dstChainId) as Sdk.SupportedChain,
       srcSafetyDeposit: parseEther('0.000001'),
       dstSafetyDeposit: parseUnits('0.000001', 6),
     };
