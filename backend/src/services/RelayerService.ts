@@ -114,7 +114,50 @@ export default class RelayerService {
   public async confirmCosmosToEth(orderHash: string): Promise<void> {
     const order = this.swapOrderService.getOrderByHash(orderHash);
     if (!order) throw new SwapError('Order not found', 'ORDER_NOT_FOUND', { orderHash });
-    // Here we would deploy EVM dst escrow based on cosmos details (future extension)
+    // Deploy EVM destination escrow on Arbitrum for Cosmos -> ETH flow
+    const evmResolver = this.getResolver(order.userIntent.dstChainId);
+
+    // Build destination immutables
+    const immutables = this.buildDstImmutables(order, evmResolver);
+
+    const [escrowDstTxHash, escrowAddress, evmDeployedAt] = await evmResolver.deployEscrowDst(immutables);
+
+    this.swapOrderService.addEscrowDstTxHash(orderHash, escrowDstTxHash);
+    this.swapOrderService.addEvmEscrowAddress(orderHash, escrowAddress);
+    this.swapOrderService.addDeployedAt(orderHash, Number(evmDeployedAt));
+  }
+
+  private buildDstImmutables(order: SwapOrder, resolver: EvmResolver): Sdk.Immutables {
+    // Use WETH on Arbitrum as destination asset; amount in 18 decimals
+    const ARBITRUM_WETH = '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1';
+
+    const hashLock = Sdk.HashLock.fromString(order.userIntent.hashLock);
+    const maker = Sdk.EvmAddress.fromString(order.userIntent.receiver); // recipient on EVM
+    const taker = Sdk.EvmAddress.fromString(resolver.getResolverAddress());
+    const token = Sdk.EvmAddress.fromString(ARBITRUM_WETH);
+    const amount = parseUnits(order.userIntent.tokenAmount, 18);
+    const safetyDeposit = parseEther('0.000001');
+
+    const timeLocks = Sdk.TimeLocks.new({
+      srcWithdrawal: 5n,
+      srcPublicWithdrawal: 120n,
+      srcCancellation: 121n,
+      srcPublicCancellation: 122n,
+      dstWithdrawal: 10n,
+      dstPublicWithdrawal: 100n,
+      dstCancellation: 101n,
+    });
+
+    return Sdk.Immutables.new({
+      orderHash: Buffer.from(order.orderHash.replace('0x', ''), 'hex'),
+      hashLock,
+      maker,
+      taker,
+      token,
+      amount,
+      safetyDeposit,
+      timeLocks,
+    });
   }
 
   private generateOrderTypedData(srcChainId: number, order: Sdk.EvmCrossChainOrder, verifyingContract: string): Sdk.EIP712TypedData {

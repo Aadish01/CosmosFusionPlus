@@ -59,9 +59,10 @@ function App() {
       try {
         const chainId = 'osmo-test-5'
         const rpc = import.meta.env.VITE_OSMO_RPC || 'https://rpc.testnet.osmosis.zone'
-        const factory = import.meta.env.VITE_OSMO_FACTORY
+        const ibc = import.meta.env.VITE_OSMO_IBC
         const denom = import.meta.env.VITE_OSMO_DENOM || 'uosmo'
-        if (!factory) { alert('VITE_OSMO_FACTORY not set'); return }
+        const targetChain = (import.meta.env.VITE_TARGET_CHAIN as string) || '42161'
+        if (!ibc) { alert('VITE_OSMO_IBC not set'); return }
 
         // ensure chain is enabled (suggest if needed)
         try { await window.keplr.enable(chainId) } catch {
@@ -97,22 +98,25 @@ function App() {
         }
         const amount = toUosmo(intent.tokenAmount)
         const timelock = Math.floor(Date.now() / 1000) + 120
-        const { fromHex, toBase64 } = await import('@cosmjs/encoding')
-        const hashlockB64 = toBase64(fromHex(intent.hashLock.replace(/^0x/, '')))
+        const { fromHex } = await import('@cosmjs/encoding')
+        const hashBytes = fromHex(intent.hashLock.replace(/^0x/, ''))
+        const hashlockJson = Array.from(hashBytes)
 
         const gasPrice = GasPrice.fromString((import.meta.env.VITE_OSMO_GAS_PRICE as string) || '0.025uosmo')
         const client = await SigningCosmWasmClient.connectWithSigner(rpc, signer, { gasPrice })
         const msg = {
-          create_h_t_l_c: {
+          create_order: {
             swap_hash: orderHash,
             maker: from,
             amount,
             denom,
-            hashlock: hashlockB64,
-            timelock
+            hashlock: hashlockJson,
+            timelock,
+            target_chain: targetChain
           }
         }
-        const res = await client.execute(from, factory, msg, 'auto')
+        const fee = { gas: '550000', amount: [{ denom: 'uosmo', amount: '16000' }] }
+        const res = await client.execute(from, ibc, msg, fee)
         alert('HTLC tx sent: ' + res.transactionHash)
 
         // Notify backend to proceed (will deploy EVM leg when implemented)
