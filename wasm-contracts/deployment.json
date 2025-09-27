@@ -1,0 +1,16 @@
+{
+  "network": "osmosis",
+  "escrow": {
+    "codeId": 12986
+  },
+  "escrow_factory": {
+    "codeId": 12987,
+    "address": "osmo13r53eu8enf8k433wufuenrhxdwcp5x9ese0dvgxvvwftywwxgrpsd2jlcj"
+  },
+  "ibc": {
+    "codeId": 12988,
+    "address": "osmo1ve3l6qfdqr59en4c3gt3j85cvst58uw99u8avc3jmjstuankqwps4qtn07"
+  },
+  "deployer": "osmo1sp99wx7zhfhlwj0y08cnwguykteglwn5ztw4f6",
+  "timestamp": "2025-09-27T16:47:40.666Z"
+}

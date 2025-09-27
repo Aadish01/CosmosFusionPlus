@@ -3,7 +3,6 @@ node_modules/
 .env
 .env.*
 last-swap.json
-deployment.json
 **/target/
 **/artifacts/*.wasm
 .vscode/
