@@ -31,7 +31,7 @@ router.post(
   asyncHandler(async (req, res) => {
     const relayerService = req.app.locals.relayerService as RelayerService;
     const { orderHash, signature }: ExecuteSwapOrderRequest = req.body;
-    const result = await relayerService.executeEvmSwapOrder(orderHash, signature);
+    await relayerService.executeEvmSwapOrder(orderHash, signature);
     return res.status(200).json({ success: true, data: { executed: true } } satisfies ApiResponse);
   })
 );
@@ -40,8 +40,8 @@ router.post(
   '/cosmos_to_eth',
   asyncHandler(async (req, res) => {
     const relayerService = req.app.locals.relayerService as RelayerService;
-    const { orderHash } = req.body as { orderHash: string };
-    await relayerService.confirmCosmosToEth(orderHash);
+    const { orderHash, srcCancellationTimestamp } = req.body as { orderHash: string; srcCancellationTimestamp?: number };
+    await relayerService.confirmCosmosToEth(orderHash, srcCancellationTimestamp);
     return res.status(200).json({ success: true, data: { executed: true } } satisfies ApiResponse);
   })
 );

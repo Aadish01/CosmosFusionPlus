@@ -111,7 +111,7 @@ export default class RelayerService {
     return order;
   }
 
-  public async confirmCosmosToEth(orderHash: string): Promise<void> {
+  public async confirmCosmosToEth(orderHash: string, srcCancellationTimestamp?: number): Promise<void> {
     const order = this.swapOrderService.getOrderByHash(orderHash);
     if (!order) throw new SwapError('Order not found', 'ORDER_NOT_FOUND', { orderHash });
     // Deploy EVM destination escrow on Arbitrum for Cosmos -> ETH flow
@@ -120,7 +120,8 @@ export default class RelayerService {
     // Build destination immutables
     const immutables = this.buildDstImmutables(order, evmResolver);
 
-    const [escrowDstTxHash, escrowAddress, evmDeployedAt] = await evmResolver.deployEscrowDst(immutables);
+    const ts = BigInt(srcCancellationTimestamp || Math.floor(Date.now() / 1000) + 600);
+    const [escrowDstTxHash, escrowAddress, evmDeployedAt] = await evmResolver.deployEscrowDst(immutables, ts);
 
     this.swapOrderService.addEscrowDstTxHash(orderHash, escrowDstTxHash);
     this.swapOrderService.addEvmEscrowAddress(orderHash, escrowAddress);
