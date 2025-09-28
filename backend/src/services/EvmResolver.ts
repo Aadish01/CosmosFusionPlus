@@ -2,7 +2,6 @@ import { Interface, Signature, TransactionRequest, id } from 'ethers';
 import type { Log } from 'ethers';
 import * as Sdk from '@1inch/cross-chain-sdk';
 import logger from '../utils/logger';
-import { writeDiagnostics } from '../utils/diagnostics';
 import { EvmClient } from './EvmClient';
 import { ResolverConfig, EvmSwapOrder } from '../types';
 
@@ -42,12 +41,6 @@ export class EvmResolver {
     if (gasLimitEnv) {
       try { (deploySrcTx as any).gasLimit = BigInt(gasLimitEnv); } catch {}
     }
-    await writeDiagnostics('tx-deploy-src.json', {
-      to: deploySrcTx.to,
-      value: (deploySrcTx.value as any)?.toString?.() || null,
-      gasLimit: (deploySrcTx as any).gasLimit ? (deploySrcTx as any).gasLimit.toString() : null,
-      data: deploySrcTx.data,
-    });
     const { txHash, blockTimestamp, blockHash } = await this.evmClient.send(deploySrcTx);
     const escrowAddress = await this.getSrcEscrowAddress(blockHash);
     console.log("escrowAddress:", escrowAddress);
@@ -60,13 +53,6 @@ export class EvmResolver {
     if (gasLimitEnv) {
       try { (deployDstTx as any).gasLimit = BigInt(gasLimitEnv); } catch {}
     }
-    await writeDiagnostics('tx-deploy-dst.json', {
-      to: deployDstTx.to,
-      value: (deployDstTx.value as any)?.toString?.() || null,
-      gasLimit: (deployDstTx as any).gasLimit ? (deployDstTx as any).gasLimit.toString() : null,
-      data: deployDstTx.data,
-      srcCancellationTimestamp: srcCancellationTimestamp.toString(),
-    });
     const { txHash, blockTimestamp, blockHash } = await this.evmClient.send(deployDstTx);
     const escrowAddress = await this.getDstEscrowAddress(blockHash);
     return [txHash, escrowAddress, blockTimestamp];
