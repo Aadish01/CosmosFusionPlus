@@ -2,6 +2,7 @@ import { Interface, Signature, TransactionRequest, id } from 'ethers';
 import type { Log } from 'ethers';
 import * as Sdk from '@1inch/cross-chain-sdk';
 import logger from '../utils/logger';
+import { writeDiagnostics } from '../utils/diagnostics';
 import { EvmClient } from './EvmClient';
 import { ResolverConfig, EvmSwapOrder } from '../types';
 
@@ -37,13 +38,35 @@ export class EvmResolver {
         .setAmountThreshold(swapOrder.order.takingAmount),
       fillAmount
     );
+    const gasLimitEnv = process.env.FORCE_GAS_LIMIT;
+    if (gasLimitEnv) {
+      try { (deploySrcTx as any).gasLimit = BigInt(gasLimitEnv); } catch {}
+    }
+    await writeDiagnostics('tx-deploy-src.json', {
+      to: deploySrcTx.to,
+      value: (deploySrcTx.value as any)?.toString?.() || null,
+      gasLimit: (deploySrcTx as any).gasLimit ? (deploySrcTx as any).gasLimit.toString() : null,
+      data: deploySrcTx.data,
+    });
     const { txHash, blockTimestamp, blockHash } = await this.evmClient.send(deploySrcTx);
     const escrowAddress = await this.getSrcEscrowAddress(blockHash);
+    console.log("escrowAddress:", escrowAddress);
     return [txHash, escrowAddress, blockTimestamp];
   }
 
-  public async deployEscrowDst(immutables: Sdk.Immutables): Promise<[string, string, bigint]> {
-    const deployDstTx = this.createDeployDstTx(immutables);
+  public async deployEscrowDst(immutables: Sdk.Immutables, srcCancellationTimestamp: bigint): Promise<[string, string, bigint]> {
+    const deployDstTx = this.createDeployDstTx(immutables, srcCancellationTimestamp);
+    const gasLimitEnv = process.env.FORCE_GAS_LIMIT;
+    if (gasLimitEnv) {
+      try { (deployDstTx as any).gasLimit = BigInt(gasLimitEnv); } catch {}
+    }
+    await writeDiagnostics('tx-deploy-dst.json', {
+      to: deployDstTx.to,
+      value: (deployDstTx.value as any)?.toString?.() || null,
+      gasLimit: (deployDstTx as any).gasLimit ? (deployDstTx as any).gasLimit.toString() : null,
+      data: deployDstTx.data,
+      srcCancellationTimestamp: srcCancellationTimestamp.toString(),
+    });
     const { txHash, blockTimestamp, blockHash } = await this.evmClient.send(deployDstTx);
     const escrowAddress = await this.getDstEscrowAddress(blockHash);
     return [txHash, escrowAddress, blockTimestamp];
@@ -73,6 +96,9 @@ export class EvmResolver {
     const { r, yParityAndS: vs } = Signature.from(signature);
     const { args, trait } = takerTraits.encode();
     const immutables = order.toSrcImmutables(chainId, Sdk.EvmAddress.fromString(this.config.resolver), amount, hashLock);
+    console.log(`order`, order)
+    console.log(`immutables`, immutables)
+    console.log(`order.build()`, order.build())
     return {
       to: this.config.resolver,
       data: this.resolverContract.encodeFunctionData('deploySrc', [
@@ -88,7 +114,7 @@ export class EvmResolver {
     };
   }
 
-  private createDeployDstTx(immutables: Sdk.Immutables): TransactionRequest {
+  private createDeployDstTx(immutables: Sdk.Immutables, srcCancellationTimestamp: bigint): TransactionRequest {
     const emptyTargets: string[] = [];
     const emptyCalls: string[] = [];
     return {
